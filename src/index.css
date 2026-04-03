@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  /* ── Colors ── */
+  --color-background: #fcf9f8;
+  --color-surface: #fcf9f8;
+  --color-surface-bright: #fcf9f8;
+  --color-surface-dim: #dbdad9;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f6f3f2;
+  --color-surface-container: #f0eded;
+  --color-surface-container-high: #eae8e7;
+  --color-surface-container-highest: #e4e2e2;
+  --color-surface-variant: #e4e2e2;
+  --color-surface-tint: #4355b9;
+  --color-inverse-surface: #0e0e0e;
+  --color-inverse-on-surface: #9e9c9c;
+
+  --color-on-background: #323232;
+  --color-on-surface: #323232;
+  --color-on-surface-variant: #5f5f5f;
+
+  --color-primary: #4355b9;
+  --color-primary-dim: #3649ac;
+  --color-primary-fixed: #dee0ff;
+  --color-primary-fixed-dim: #ccd2ff;
+  --color-primary-container: #dee0ff;
+  --color-on-primary: #f9f6ff;
+  --color-on-primary-fixed: #203498;
+  --color-on-primary-fixed-variant: #4052b6;
+  --color-on-primary-container: #3648ac;
+  --color-inverse-primary: #8596ff;
+
+  --color-secondary: #5f5e62;
+  --color-secondary-dim: #535356;
+  --color-secondary-fixed: #e4e1e6;
+  --color-secondary-fixed-dim: #d6d3d8;
+  --color-secondary-container: #e4e1e6;
+  --color-on-secondary: #fbf8fc;
+  --color-on-secondary-fixed: #3f3f43;
+  --color-on-secondary-fixed-variant: #5c5b5f;
+  --color-on-secondary-container: #525155;
+
+  --color-tertiary: #535f78;
+  --color-tertiary-dim: #47536b;
+  --color-tertiary-fixed: #d1ddfa;
+  --color-tertiary-fixed-dim: #c3cfeb;
+  --color-tertiary-container: #d1ddfa;
+  --color-on-tertiary: #f8f8ff;
+  --color-on-tertiary-fixed: #303c53;
+  --color-on-tertiary-fixed-variant: #4c5870;
+  --color-on-tertiary-container: #434e66;
+
+  --color-error: #9e3f4e;
+  --color-error-dim: #4f0116;
+  --color-error-container: #ff8b9a;
+  --color-on-error: #fff7f7;
+  --color-on-error-container: #782232;
+
+  --color-outline: #7b7a7a;
+  --color-outline-variant: #b3b2b1;
+
+  /* ── Typography ── */
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+
+  /* ── Border Radius ── */
+  --radius: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+}
+
+/* ── Global base ── */
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Material Symbols ── */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+
+/* ── Custom utilities ── */
+@utility indigo-gradient {
+  background: linear-gradient(135deg, #4355b9 0%, #3649ac 100%);
+}
+
+@utility glass-effect {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
