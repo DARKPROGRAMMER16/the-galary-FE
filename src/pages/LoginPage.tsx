@@ -4,17 +4,28 @@ import AuthLayout from '../components/AuthLayout'
 import AppLogo from '../components/AppLogo'
 import FormInput from '../components/FormInput'
 import PrimaryButton from '../components/PrimaryButton'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { login, isLoading } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
-    // TODO: wire up auth
-    navigate('/')
+    setError('')
+    try {
+      await login({ email, password })
+      navigate('/library')
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Invalid email or password.'
+      setError(message)
+    }
   }
 
   return (
@@ -22,6 +33,12 @@ export default function LoginPage() {
       <AppLogo subtitle="Welcome back to the gallery." />
 
       <div className="bg-surface-container-lowest rounded-xl p-8 md:p-10 shadow-[0_40px_80px_-15px_rgba(50,50,50,0.04)]">
+        {error && (
+          <div className="mb-6 px-4 py-3 rounded-xl bg-error-container text-on-error-container text-sm font-medium">
+            {error}
+          </div>
+        )}
+
         <form className="space-y-6" onSubmit={handleSubmit}>
           <FormInput
             id="email"
@@ -43,14 +60,6 @@ export default function LoginPage() {
             value={password}
             onChange={setPassword}
             required
-            labelRight={
-              <a
-                href="#"
-                className="text-xs font-semibold text-primary hover:text-primary-dim transition-colors tracking-tight"
-              >
-                Forgot Password?
-              </a>
-            }
             trailing={
               <button
                 type="button"
@@ -65,8 +74,8 @@ export default function LoginPage() {
             }
           />
 
-          <PrimaryButton type="submit" className="w-full mt-4">
-            Sign In
+          <PrimaryButton type="submit" className="w-full mt-4" disabled={isLoading}>
+            {isLoading ? 'Signing in…' : 'Sign In'}
           </PrimaryButton>
         </form>
 

@@ -1,9 +1,11 @@
-export type VideoStatus = 'safe' | 'processing' | 'flagged'
+export type VideoStatus = 'safe' | 'processing' | 'flagged' | 'pending' | 'error'
 
 const config: Record<VideoStatus, { bg: string; text: string; dot: string; label: string }> = {
   safe:       { bg: 'bg-on-primary-container/90', text: 'text-on-primary',  dot: 'bg-primary-fixed-dim',                label: 'Safe'       },
   processing: { bg: 'bg-tertiary/90',             text: 'text-on-tertiary', dot: 'bg-tertiary-fixed animate-pulse',     label: 'Processing' },
   flagged:    { bg: 'bg-error/90',                text: 'text-on-error',    dot: 'bg-error-container',                  label: 'Flagged'    },
+  pending:    { bg: 'bg-secondary/90',            text: 'text-on-secondary', dot: 'bg-secondary-container animate-pulse', label: 'Pending'  },
+  error:      { bg: 'bg-error-container/90',      text: 'text-on-error-container', dot: 'bg-error',                     label: 'Error'      },
 }
 
 interface StatusBadgeProps {

@@ -1,54 +1,85 @@
 import { useState, useRef, type DragEvent, type ChangeEvent } from 'react'
 import PageHeader from '../components/PageHeader'
 import QueueItem, { type QueueItemData } from '../components/QueueItem'
+import { useVideos } from '../contexts/VideoContext'
 
-const initialQueue: QueueItemData[] = [
-  {
-    id: 'q1',
-    name: 'Misty_Valley_Raw_02.mp4',
-    size: '4.2 GB',
-    timeRemaining: '2m 14s remaining',
-    progress: 74,
-    state: 'uploading',
-    thumbnailGradient: 'linear-gradient(135deg, #1a3a4a 0%, #2d6a7a 50%, #4a9aa0 100%)',
-  },
-  {
-    id: 'q2',
-    name: 'Modern_Architecture_Series_A.mov',
-    size: '1.8 GB',
-    timeRemaining: 'Pending Transcode',
-    progress: 12,
-    state: 'transcoding',
-    thumbnailGradient: 'linear-gradient(135deg, #1e2a3a 0%, #2d3f5f 50%, #4a6080 100%)',
-  },
-]
-
-const guidelines = [
+const guidelines: { title: string; body: string }[] = [
   { title: 'Codec optimized', body: 'H.264 or ProRes 422 are recommended for best processing.' },
   { title: 'Color Space',     body: 'Rec.709 or Rec.2020 (HDR) are fully supported.' },
   { title: 'Bitrate Control', body: 'Dynamic transcoding ensures smooth 60fps delivery.' },
 ]
 
 export default function UploadPage() {
+  const { uploadVideo } = useVideos()
   const [dragging, setDragging] = useState(false)
-  const [queue, setQueue] = useState<QueueItemData[]>(initialQueue)
+  const [queue, setQueue] = useState<QueueItemData[]>([])
+  const [titleModal, setTitleModal] = useState<{ file: File } | null>(null)
+  const [titleInput, setTitleInput] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   function handleDragOver(e: DragEvent) { e.preventDefault(); setDragging(true) }
   function handleDragLeave() { setDragging(false) }
-  function handleDrop(e: DragEvent) { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) }
-  function handleFileChange(e: ChangeEvent<HTMLInputElement>) { if (e.target.files) addFiles(e.target.files) }
+  function handleDrop(e: DragEvent) { e.preventDefault(); setDragging(false); openTitleModal(e.dataTransfer.files[0]) }
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    if (e.target.files?.[0]) openTitleModal(e.target.files[0])
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }
 
-  function addFiles(files: FileList) {
-    const newItems: QueueItemData[] = Array.from(files).map((f) => ({
-      id: crypto.randomUUID(),
-      name: f.name,
-      size: formatBytes(f.size),
-      timeRemaining: 'Queued',
-      progress: 0,
-      state: 'uploading' as const,
-    }))
-    setQueue((prev) => [...prev, ...newItems])
+  function openTitleModal(file: File) {
+    setTitleInput(file.name.replace(/\.[^/.]+$/, ''))
+    setTitleModal({ file })
+  }
+
+  async function confirmUpload() {
+    if (!titleModal) return
+    const { file } = titleModal
+    const title = titleInput.trim() || file.name
+
+    const queueId = crypto.randomUUID()
+    const item: QueueItemData = {
+      id: queueId,
+      name: file.name,
+      size: formatBytes(file.size),
+      timeRemaining: 'Saving…',
+      progress: 10,
+      state: 'uploading',
+    }
+
+    setQueue((prev) => [...prev, item])
+    setTitleModal(null)
+    setTitleInput('')
+
+    try {
+      // Simulate save progress (IndexedDB write + metadata POST)
+      setQueue((prev) =>
+        prev.map((q) => q.id === queueId ? { ...q, progress: 40, timeRemaining: 'Storing locally…' } : q)
+      )
+
+      await uploadVideo(file, { title })
+
+      setQueue((prev) =>
+        prev.map((q) =>
+          q.id === queueId
+            ? { ...q, progress: 100, state: 'transcoding', timeRemaining: 'Processing on server…' }
+            : q
+        )
+      )
+
+      // After a short delay, remove from queue
+      setTimeout(() => {
+        setQueue((prev) => prev.filter((q) => q.id !== queueId))
+      }, 3000)
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Upload failed.'
+      setQueue((prev) =>
+        prev.map((q) =>
+          q.id === queueId ? { ...q, state: 'uploading', timeRemaining: msg, progress: 0 } : q
+        )
+      )
+    }
   }
 
   function removeItem(id: string) {
@@ -68,6 +99,41 @@ export default function UploadPage() {
         subtitle="Upload your high-resolution raw assets. Our cinematic processing engine handles the rest."
       />
 
+      {/* Title input modal */}
+      {titleModal && (
+        <div className="fixed inset-0 z-50 bg-inverse-surface/30 flex items-center justify-center p-6">
+          <div
+            className="bg-surface-container-lowest rounded-2xl p-8 w-full max-w-md shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-headline font-semibold text-xl mb-6">Name your video</h3>
+            <input
+              type="text"
+              value={titleInput}
+              onChange={(e) => setTitleInput(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-body outline-none focus:ring-2 focus:ring-primary mb-6"
+              placeholder="Enter a title…"
+              autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmUpload() }}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setTitleModal(null); setTitleInput('') }}
+                className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-on-surface font-semibold hover:bg-surface-container-low transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmUpload}
+                className="flex-1 py-3 rounded-xl bg-primary text-on-primary font-bold hover:bg-primary-dim transition-all"
+              >
+                Upload
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bento grid: drop zone + guidelines */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 mb-12 lg:mb-16">
         {/* Drop zone */}
@@ -86,7 +152,7 @@ export default function UploadPage() {
               <div className="h-full w-full bg-[radial-gradient(circle_at_center,#4355b9,transparent)]" />
             </div>
 
-            <input ref={inputRef} type="file" multiple accept="video/*" className="hidden" onChange={handleFileChange} />
+            <input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFileChange} />
 
             <div className="flex flex-col items-center text-center px-6 py-10 sm:p-8 z-10">
               <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-surface-container-high flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform duration-500">
@@ -98,7 +164,7 @@ export default function UploadPage() {
                 Drag and drop assets here
               </h3>
               <p className="text-on-surface-variant text-sm max-w-xs sm:max-w-sm mb-6 sm:mb-8">
-                Supports MP4, MOV, and HEVC up to 8K. Max file size: 10GB.
+                Supports MP4, MOV, and HEVC up to 8K. Video is stored locally in your browser.
               </p>
               <button
                 onClick={() => inputRef.current?.click()}
@@ -133,27 +199,22 @@ export default function UploadPage() {
       </div>
 
       {/* Active queue */}
-      <section>
-        <div className="flex items-center justify-between mb-6 sm:mb-8 gap-4">
-          <h3 className="text-xl sm:text-2xl font-headline font-semibold shrink-0">Active Queue</h3>
-          {queue.length > 0 && (
+      {queue.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-6 sm:mb-8 gap-4">
+            <h3 className="text-xl sm:text-2xl font-headline font-semibold shrink-0">Active Queue</h3>
             <span className="px-3 py-1 bg-primary-container text-on-primary-container text-[10px] font-bold uppercase tracking-wider rounded-full shrink-0">
               {queue.length} {queue.length === 1 ? 'File' : 'Files'} Processing
             </span>
-          )}
-        </div>
-
-        <div className="space-y-3 sm:space-y-4">
-          {queue.map((item) => (
-            <QueueItem key={item.id} item={item} onRemove={removeItem} />
-          ))}
-
-          <div className="p-8 sm:p-12 border-2 border-dashed border-surface-container-high rounded-2xl flex flex-col items-center justify-center opacity-40">
-            <span className="material-symbols-outlined text-3xl mb-2">playlist_add</span>
-            <p className="text-sm font-medium">Add more to the queue</p>
           </div>
-        </div>
-      </section>
+
+          <div className="space-y-3 sm:space-y-4">
+            {queue.map((item) => (
+              <QueueItem key={item.id} item={item} onRemove={removeItem} />
+            ))}
+          </div>
+        </section>
+      )}
     </>
   )
 }

@@ -8,6 +8,7 @@ export interface VideoItem {
   thumbnail?: string
   thumbnailGradient?: string
   videoUrl?: string
+  storageKey?: string
   quality?: string
   views?: string
   publishedAt?: string

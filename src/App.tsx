@@ -4,6 +4,7 @@ import LibraryPage from './pages/LibraryPage'
 import UploadPage from './pages/UploadPage'
 import LoginPage from './pages/LoginPage'
 import SignUpPage from './pages/SignUpPage'
+import ProtectedRoute from './components/ProtectedRoute'
 
 export default function App() {
   return (
@@ -13,8 +14,14 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
 
-        {/* Dashboard (shared layout) */}
-        <Route element={<DashboardLayout />}>
+        {/* Protected dashboard */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/upload" element={<UploadPage />} />
         </Route>

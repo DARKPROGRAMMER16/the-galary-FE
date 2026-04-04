@@ -1,4 +1,5 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
 const navItems = [
   { label: 'Library', icon: 'video_library', href: '/library' },
@@ -8,17 +9,20 @@ const navItems = [
 interface SidebarProps {
   mobileOpen?: boolean
   onMobileClose?: () => void
-  user?: { name: string; plan: string; avatarInitial?: string }
 }
 
-function SidebarContent({
-  user,
-  onClose,
-}: {
-  user: NonNullable<SidebarProps['user']>
-  onClose?: () => void
-}) {
+function SidebarContent({ onClose }: { onClose?: () => void }) {
   const { pathname } = useLocation()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const avatarInitial = user?.name?.charAt(0).toUpperCase() ?? '?'
+
+  function handleLogout() {
+    logout()
+    navigate('/login')
+  }
+
   return (
     <>
       {/* Brand */}
@@ -27,7 +31,6 @@ function SidebarContent({
           <h1 className="text-2xl font-bold text-on-background">The Galary</h1>
           <p className="text-sm opacity-60 text-on-surface font-body">Video Manager</p>
         </div>
-        {/* Close button — mobile only */}
         {onClose && (
           <button
             onClick={onClose}
@@ -61,29 +64,32 @@ function SidebarContent({
         })}
       </nav>
 
-      {/* User profile */}
-      <div className="mt-auto pt-6">
+      {/* User profile + logout */}
+      <div className="mt-auto pt-6 space-y-2">
         <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-surface-container-low">
           <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center shrink-0">
             <span className="font-headline font-bold text-on-primary-container text-sm">
-              {user.avatarInitial}
+              {avatarInitial}
             </span>
           </div>
-          <div className="overflow-hidden">
-            <p className="text-sm font-bold truncate text-on-background">{user.name}</p>
-            <p className="text-xs opacity-50 truncate text-on-surface">{user.plan}</p>
+          <div className="overflow-hidden flex-1">
+            <p className="text-sm font-bold truncate text-on-background">{user?.name ?? '—'}</p>
+            <p className="text-xs opacity-50 truncate text-on-surface capitalize">{user?.role ?? ''}</p>
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-on-surface opacity-70 hover:bg-surface-container-low hover:opacity-100 transition-all"
+        >
+          <span className="material-symbols-outlined">logout</span>
+          <span>Sign Out</span>
+        </button>
       </div>
     </>
   )
 }
 
-export default function Sidebar({
-  mobileOpen = false,
-  onMobileClose,
-  user = { name: 'Alex Rivera', plan: 'Pro Plan', avatarInitial: 'A' },
-}: SidebarProps) {
+export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   return (
     <>
       {/* Mobile backdrop */}
@@ -105,7 +111,7 @@ export default function Sidebar({
           ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        <SidebarContent user={user} onClose={onMobileClose} />
+        <SidebarContent onClose={onMobileClose} />
       </aside>
     </>
   )

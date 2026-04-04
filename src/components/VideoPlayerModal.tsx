@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { VideoItem } from './VideoCard'
+import { getVideoBlob } from '../utils/videoStorage'
 
 interface VideoPlayerModalProps {
   video: VideoItem
@@ -15,11 +16,37 @@ function formatTime(seconds: number): string {
 export default function VideoPlayerModal({ video, onClose }: VideoPlayerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(video.videoUrl ?? null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
   const [showVolume, setShowVolume] = useState(false)
+  const [notAvailable, setNotAvailable] = useState(false)
+
+  // Load video from IndexedDB if we have a storageKey
+  useEffect(() => {
+    if (video.videoUrl) return
+
+    if (!video.storageKey) {
+      setNotAvailable(true)
+      return
+    }
+
+    let objectUrl: string
+    getVideoBlob(video.storageKey).then((blob) => {
+      if (!blob) {
+        setNotAvailable(true)
+        return
+      }
+      objectUrl = URL.createObjectURL(blob)
+      setResolvedUrl(objectUrl)
+    })
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [video.storageKey, video.videoUrl])
 
   function togglePlay() {
     const v = videoRef.current
@@ -38,7 +65,6 @@ export default function VideoPlayerModal({ video, onClose }: VideoPlayerModalPro
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  // Pause on unmount
   useEffect(() => {
     return () => { videoRef.current?.pause() }
   }, [])
@@ -90,10 +116,15 @@ export default function VideoPlayerModal({ video, onClose }: VideoPlayerModalPro
 
         {/* Video stage */}
         <div className="relative flex-1 min-h-0 bg-inverse-surface group">
-          {video.videoUrl ? (
+          {notAvailable ? (
+            <div className="w-full h-full min-h-48 flex flex-col items-center justify-center text-on-surface-variant gap-3">
+              <span className="material-symbols-outlined text-5xl opacity-40">video_off</span>
+              <p className="text-sm opacity-60">Video not available on this device</p>
+            </div>
+          ) : resolvedUrl ? (
             <video
               ref={videoRef}
-              src={video.videoUrl}
+              src={resolvedUrl}
               className="w-full h-full object-contain"
               onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
               onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
@@ -101,96 +132,85 @@ export default function VideoPlayerModal({ video, onClose }: VideoPlayerModalPro
               onClick={togglePlay}
             />
           ) : (
-            <div
-              className="w-full h-full min-h-48"
-              style={{ background: video.thumbnailGradient ?? 'linear-gradient(135deg, #4355b9, #535f78)' }}
-              onClick={togglePlay}
-            />
+            <div className="w-full h-full min-h-48 flex items-center justify-center">
+              <span className="material-symbols-outlined animate-spin text-3xl text-on-surface-variant opacity-40">
+                progress_activity
+              </span>
+            </div>
           )}
 
           {/* Center play/pause overlay */}
-          <div
-            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-            onClick={togglePlay}
-          >
-            <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-primary/90 flex items-center justify-center text-white shadow-lg">
-              <span className="material-symbols-outlined text-3xl sm:text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                {isPlaying ? 'pause' : 'play_arrow'}
-              </span>
-            </div>
-          </div>
-
-          {/* Controls bar */}
-          <div
-            className="absolute bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 w-[96%] rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 shadow-sm border border-white/10"
-            style={{ background: 'rgba(252,249,248,0.6)', backdropFilter: 'blur(24px)' }}
-          >
-            {/* Progress bar */}
+          {resolvedUrl && !notAvailable && (
             <div
-              ref={progressRef}
-              className="relative w-full h-1 bg-on-surface/10 rounded-full cursor-pointer group/progress"
-              onClick={handleSeek}
+              className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              onClick={togglePlay}
             >
-              <div className="absolute top-0 left-0 h-full bg-primary rounded-full" style={{ width: `${progress}%` }}>
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full scale-0 group-hover/progress:scale-100 transition-transform" />
-              </div>
-            </div>
-
-            {/* Action row */}
-            <div className="flex items-center justify-between gap-2">
-              {/* Left controls */}
-              <div className="flex items-center gap-3 sm:gap-5">
-                <button onClick={togglePlay} className="text-on-surface hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    {isPlaying ? 'pause' : 'play_arrow'}
-                  </span>
-                </button>
-
-                <button className="text-on-surface hover:text-primary transition-colors hidden sm:block">
-                  <span className="material-symbols-outlined text-xl">skip_next</span>
-                </button>
-
-                {/* Volume — hover expand on desktop, tap-to-mute on mobile */}
-                <div
-                  className="flex items-center gap-2"
-                  onMouseEnter={() => setShowVolume(true)}
-                  onMouseLeave={() => setShowVolume(false)}
-                >
-                  <button onClick={toggleMute} className="text-on-surface hover:text-primary transition-colors">
-                    <span className="material-symbols-outlined text-xl">
-                      {volume === 0 ? 'volume_off' : 'volume_up'}
-                    </span>
-                  </button>
-                  {/* Slider — hidden on mobile, hover-reveal on desktop */}
-                  <div className={`overflow-hidden transition-all duration-200 hidden sm:block ${showVolume ? 'w-16' : 'w-0'}`}>
-                    <input
-                      type="range" min="0" max="1" step="0.05"
-                      value={volume} onChange={handleVolumeChange}
-                      className="w-16 h-1 accent-primary cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                {/* Time */}
-                <span className="text-[10px] sm:text-xs font-medium font-body text-on-surface-variant tabular-nums">
-                  {formatTime(currentTime)} / {formatTime(duration)}
+              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full bg-primary/90 flex items-center justify-center text-white shadow-lg">
+                <span className="material-symbols-outlined text-3xl sm:text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  {isPlaying ? 'pause' : 'play_arrow'}
                 </span>
               </div>
+            </div>
+          )}
 
-              {/* Right controls */}
-              <div className="flex items-center gap-3 sm:gap-5">
-                <button className="text-on-surface hover:text-primary transition-colors hidden md:block">
-                  <span className="material-symbols-outlined text-xl">closed_caption</span>
-                </button>
-                <button className="text-on-surface hover:text-primary transition-colors hidden sm:block">
-                  <span className="material-symbols-outlined text-xl">settings</span>
-                </button>
-                <button onClick={() => videoRef.current?.requestFullscreen()} className="text-on-surface hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined text-xl">fullscreen</span>
-                </button>
+          {/* Controls bar */}
+          {resolvedUrl && !notAvailable && (
+            <div
+              className="absolute bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 w-[96%] rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 shadow-sm border border-white/10"
+              style={{ background: 'rgba(252,249,248,0.6)', backdropFilter: 'blur(24px)' }}
+            >
+              {/* Progress bar */}
+              <div
+                ref={progressRef}
+                className="relative w-full h-1 bg-on-surface/10 rounded-full cursor-pointer group/progress"
+                onClick={handleSeek}
+              >
+                <div className="absolute top-0 left-0 h-full bg-primary rounded-full" style={{ width: `${progress}%` }}>
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full scale-0 group-hover/progress:scale-100 transition-transform" />
+                </div>
+              </div>
+
+              {/* Action row */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 sm:gap-5">
+                  <button onClick={togglePlay} className="text-on-surface hover:text-primary transition-colors">
+                    <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                      {isPlaying ? 'pause' : 'play_arrow'}
+                    </span>
+                  </button>
+
+                  <div
+                    className="flex items-center gap-2"
+                    onMouseEnter={() => setShowVolume(true)}
+                    onMouseLeave={() => setShowVolume(false)}
+                  >
+                    <button onClick={toggleMute} className="text-on-surface hover:text-primary transition-colors">
+                      <span className="material-symbols-outlined text-xl">
+                        {volume === 0 ? 'volume_off' : 'volume_up'}
+                      </span>
+                    </button>
+                    <div className={`overflow-hidden transition-all duration-200 hidden sm:block ${showVolume ? 'w-16' : 'w-0'}`}>
+                      <input
+                        type="range" min="0" max="1" step="0.05"
+                        value={volume} onChange={handleVolumeChange}
+                        className="w-16 h-1 accent-primary cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <span className="text-[10px] sm:text-xs font-medium font-body text-on-surface-variant tabular-nums">
+                    {formatTime(currentTime)} / {formatTime(duration)}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 sm:gap-5">
+                  <button onClick={() => videoRef.current?.requestFullscreen()} className="text-on-surface hover:text-primary transition-colors">
+                    <span className="material-symbols-outlined text-xl">fullscreen</span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Metadata */}

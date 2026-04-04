@@ -1,54 +1,30 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PageHeader from '../components/PageHeader'
 import VideoCard, { type VideoItem } from '../components/VideoCard'
 import VideoPlayerModal from '../components/VideoPlayerModal'
+import { useVideos } from '../contexts/VideoContext'
+import { getThumbnail } from '../utils/videoStorage'
+import type { Video } from '../types/api.types'
 
-const videos: VideoItem[] = [
-  {
-    id: '1',
-    title: 'Dawn in the Cascades',
-    meta: 'Edited 2 hours ago • 4K HDR',
-    status: 'safe',
-    quality: '4K HDR',
-    publishedAt: 'Published 2 days ago',
-    views: '12.4k Views',
-    thumbnailGradient: 'linear-gradient(135deg, #1a3a4a 0%, #2d6a7a 50%, #4a9aa0 100%)',
-    videoUrl: '/videos/videos/IMG_0590.MOV',
-  },
-  {
-    id: '2',
-    title: 'Urban Nocturne Vol. 2',
-    meta: 'Uploading • 85% complete',
-    status: 'processing',
-    quality: '1080p',
-    publishedAt: 'Published 5 days ago',
-    views: '8.1k Views',
-    thumbnailGradient: 'linear-gradient(135deg, #1a1040 0%, #3b1f6e 50%, #5f3d9e 100%)',
-    videoUrl: '/videos/videos/IMG_0591.MOV',
-  },
-  {
-    id: '3',
-    title: 'Street Scene Uncut',
-    meta: 'Review required • Copyright',
-    status: 'flagged',
-    quality: '4K',
-    publishedAt: 'Published 1 week ago',
-    views: '3.7k Views',
-    thumbnailGradient: 'linear-gradient(135deg, #3a1a0a 0%, #7a3d1e 50%, #c46a30 100%)',
-    videoUrl: '/videos/videos/IMG_0593.MOV',
-  },
-  {
-    id: '4',
-    title: 'Neon Geometry',
-    meta: 'Edited yesterday • 1080p',
-    status: 'safe',
-    quality: '1080p',
-    publishedAt: 'Published 3 days ago',
-    views: '21.9k Views',
-    thumbnailGradient: 'linear-gradient(135deg, #1a0a3a 0%, #5f1a7a 50%, #c030b0 100%)',
-    videoUrl: '/videos/videos/IMG_0599.MOV',
-  },
-]
+function mapVideoToItem(v: Video): VideoItem {
+  const thumbnail = getThumbnail(v.storageKey) ?? undefined
+  return {
+    id: v._id,
+    title: v.title,
+    meta: v.description || v.originalName,
+    status: v.status,
+    storageKey: v.storageKey,
+    thumbnail,
+    quality: v.resolution?.width
+      ? `${v.resolution.width >= 3840 ? '4K' : v.resolution.width >= 1920 ? '1080p' : '720p'}`
+      : undefined,
+    publishedAt: new Date(v.createdAt).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    }),
+  }
+}
 
 function SearchInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -68,10 +44,16 @@ function SearchInput({ value, onChange }: { value: string; onChange: (v: string)
 }
 
 export default function LibraryPage() {
+  const { videos, isLoading, error, fetchVideos } = useVideos()
   const [search, setSearch] = useState('')
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null)
 
-  const filtered = videos.filter((v) =>
+  useEffect(() => {
+    fetchVideos()
+  }, [fetchVideos])
+
+  const items = videos.map(mapVideoToItem)
+  const filtered = items.filter((v) =>
     v.title.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -83,11 +65,33 @@ export default function LibraryPage() {
         right={<SearchInput value={search} onChange={setSearch} />}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-        {filtered.map((video) => (
-          <VideoCard key={video.id} video={video} onClick={setActiveVideo} />
-        ))}
-      </div>
+      {isLoading && (
+        <div className="flex items-center justify-center py-24 text-on-surface-variant">
+          <span className="material-symbols-outlined animate-spin mr-3">progress_activity</span>
+          Loading your library…
+        </div>
+      )}
+
+      {error && !isLoading && (
+        <div className="px-5 py-4 rounded-xl bg-error-container text-on-error-container text-sm">
+          {error}
+        </div>
+      )}
+
+      {!isLoading && !error && filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-24 text-on-surface-variant opacity-60">
+          <span className="material-symbols-outlined text-5xl mb-4">video_library</span>
+          <p className="text-base font-medium">No videos yet. Upload your first one!</p>
+        </div>
+      )}
+
+      {!isLoading && filtered.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          {filtered.map((video) => (
+            <VideoCard key={video.id} video={video} onClick={setActiveVideo} />
+          ))}
+        </div>
+      )}
 
       {activeVideo && (
         <VideoPlayerModal video={activeVideo} onClose={() => setActiveVideo(null)} />
