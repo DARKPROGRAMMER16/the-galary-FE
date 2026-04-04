@@ -1,8 +1,11 @@
+import { useState, useRef, useEffect } from 'react'
 import StatusBadge, { type VideoStatus } from './StatusBadge'
 
 export interface VideoItem {
   id: string
   title: string
+  description?: string
+  tags?: string[]
   meta: string
   status: VideoStatus
   thumbnail?: string
@@ -16,9 +19,26 @@ export interface VideoItem {
 interface VideoCardProps {
   video: VideoItem
   onClick?: (video: VideoItem) => void
+  onEdit?: (video: VideoItem) => void
+  onDelete?: (video: VideoItem) => void
 }
 
-export default function VideoCard({ video, onClick }: VideoCardProps) {
+export default function VideoCard({ video, onClick, onEdit, onDelete }: VideoCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    function handleOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [menuOpen])
+
   return (
     <div className="group cursor-pointer" onClick={() => onClick?.(video)}>
       {/* Thumbnail */}
@@ -32,7 +52,6 @@ export default function VideoCard({ video, onClick }: VideoCardProps) {
           />
         )}
 
-        {/* Status badge */}
         <div className="absolute top-4 right-4">
           <StatusBadge status={video.status} />
         </div>
@@ -49,16 +68,49 @@ export default function VideoCard({ video, onClick }: VideoCardProps) {
 
       {/* Info row */}
       <div className="flex justify-between items-start">
-        <div>
-          <h3 className="font-headline font-bold text-lg text-on-surface">{video.title}</h3>
-          <p className="text-sm text-secondary font-body mt-1">{video.meta}</p>
+        <div className="min-w-0 pr-2">
+          <h3 className="font-headline font-bold text-lg text-on-surface truncate">{video.title}</h3>
+          <p className="text-sm text-secondary font-body mt-1 truncate">{video.meta}</p>
         </div>
-        <button
-          className="p-2 hover:bg-surface-container-low rounded-lg text-outline transition-colors"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <span className="material-symbols-outlined">more_vert</span>
-        </button>
+
+        {/* 3-dot menu */}
+        <div className="relative shrink-0" ref={menuRef}>
+          <button
+            className="p-2 hover:bg-surface-container-low rounded-lg text-outline transition-colors"
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v) }}
+            aria-label="Video options"
+          >
+            <span className="material-symbols-outlined">more_vert</span>
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-1 w-44 bg-surface-container-lowest rounded-xl shadow-xl border border-outline-variant/20 overflow-hidden z-20">
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-low transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setMenuOpen(false)
+                  onEdit?.(video)
+                }}
+              >
+                <span className="material-symbols-outlined text-lg">edit</span>
+                Edit details
+              </button>
+              <div className="h-px bg-outline-variant/10 mx-3" />
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-error hover:bg-error-container/30 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setMenuOpen(false)
+                  onDelete?.(video)
+                }}
+              >
+                <span className="material-symbols-outlined text-lg">delete</span>
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
