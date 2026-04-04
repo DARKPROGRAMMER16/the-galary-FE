@@ -13,16 +13,7 @@ import {
   deleteVideoApi,
   updateVideoApi,
   type VideoFilters,
-  type UploadVideoPayload,
 } from '../api/video.api'
-import {
-  saveVideoBlob,
-  removeVideoBlob,
-  readVideoMetadata,
-  generateVideoThumbnail,
-  saveThumbnail,
-  removeThumbnail,
-} from '../utils/videoStorage'
 import { useAuth } from './AuthContext'
 import type { Video, Pagination } from '../types/api.types'
 
@@ -34,9 +25,10 @@ interface VideoContextType {
   fetchVideos: (filters?: VideoFilters) => Promise<void>
   uploadVideo: (
     file: File,
-    meta: { title: string; description?: string; tags?: string }
+    meta: { title: string; description?: string; tags?: string },
+    onProgress?: (pct: number) => void
   ) => Promise<Video>
-  removeVideo: (id: string, storageKey: string) => Promise<void>
+  removeVideo: (id: string) => Promise<void>
   editVideo: (
     id: string,
     payload: { title?: string; description?: string; tags?: string }
@@ -54,7 +46,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // --- Socket connection ---
+  // ─── Real-time socket updates ────────────────────────────────────────────
   useEffect(() => {
     if (!token) return
 
@@ -68,21 +60,17 @@ export function VideoProvider({ children }: { children: ReactNode }) {
       console.warn('[Socket] connect error:', err.message)
     })
 
-    // Processing step update — update progress + status on the matching video
     socket.on(
       'video:progress',
       ({ videoId, progress }: { videoId: string; progress: number; step: string }) => {
         setVideos((prev) =>
           prev.map((v) =>
-            v._id === videoId
-              ? { ...v, status: 'processing', processingProgress: progress }
-              : v
+            v._id === videoId ? { ...v, status: 'processing', processingProgress: progress } : v
           )
         )
       }
     )
 
-    // Processing complete — apply final status + sensitivity scores
     socket.on(
       'video:done',
       ({
@@ -107,19 +95,16 @@ export function VideoProvider({ children }: { children: ReactNode }) {
       }
     )
 
-    // Processing error
     socket.on('video:error', ({ videoId }: { videoId: string }) => {
       setVideos((prev) =>
         prev.map((v) => (v._id === videoId ? { ...v, status: 'error' } : v))
       )
     })
 
-    return () => {
-      socket.disconnect()
-    }
+    return () => { socket.disconnect() }
   }, [token])
 
-  // --- API methods ---
+  // ─── API methods ─────────────────────────────────────────────────────────
 
   const fetchVideos = useCallback(async (filters: VideoFilters = {}) => {
     setIsLoading(true)
@@ -141,40 +126,24 @@ export function VideoProvider({ children }: { children: ReactNode }) {
   const uploadVideo = useCallback(
     async (
       file: File,
-      meta: { title: string; description?: string; tags?: string }
+      meta: { title: string; description?: string; tags?: string },
+      onProgress?: (pct: number) => void
     ): Promise<Video> => {
-      const { duration, width, height } = await readVideoMetadata(file)
+      const formData = new FormData()
+      formData.append('video', file)
+      formData.append('title', meta.title)
+      if (meta.description) formData.append('description', meta.description)
+      if (meta.tags) formData.append('tags', meta.tags)
 
-      const storageKey = crypto.randomUUID()
-
-      // Save blob + generate thumbnail in parallel
-      const [, thumbnailDataUrl] = await Promise.all([
-        saveVideoBlob(storageKey, file),
-        generateVideoThumbnail(file),
-      ])
-      saveThumbnail(storageKey, thumbnailDataUrl)
-
-      const payload: UploadVideoPayload = {
-        ...meta,
-        storageKey,
-        originalName: file.name,
-        fileSize: file.size,
-        mimeType: file.type,
-        duration,
-        resolution: { width, height },
-      }
-
-      const video = await createVideoApi(payload)
+      const video = await createVideoApi(formData, onProgress)
       setVideos((prev) => [video, ...prev])
       return video
     },
     []
   )
 
-  const removeVideo = useCallback(async (id: string, storageKey: string) => {
+  const removeVideo = useCallback(async (id: string) => {
     await deleteVideoApi(id)
-    await removeVideoBlob(storageKey)
-    removeThumbnail(storageKey)
     setVideos((prev) => prev.filter((v) => v._id !== id))
   }, [])
 
@@ -191,16 +160,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
 
   return (
     <VideoContext.Provider
-      value={{
-        videos,
-        pagination,
-        isLoading,
-        error,
-        fetchVideos,
-        uploadVideo,
-        removeVideo,
-        editVideo,
-      }}
+      value={{ videos, pagination, isLoading, error, fetchVideos, uploadVideo, removeVideo, editVideo }}
     >
       {children}
     </VideoContext.Provider>

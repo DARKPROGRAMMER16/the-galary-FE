@@ -1,28 +1,30 @@
 import axiosInstance from './axiosInstance'
-import type {
-  ApiResponse,
-  Video,
-  VideoListResponse,
-  VideoStats,
-} from '../types/api.types'
-
-export interface UploadVideoPayload {
-  title: string
-  description?: string
-  tags?: string
-  storageKey: string
-  originalName: string
-  fileSize: number
-  mimeType: string
-  duration?: number
-  resolution?: { width: number; height: number }
-}
+import type { ApiResponse, Video, VideoListResponse, VideoStats } from '../types/api.types'
 
 export interface VideoFilters {
   status?: string
   page?: number
   limit?: number
   sort?: string
+}
+
+/**
+ * Upload a video as multipart/form-data.
+ * `onUploadProgress` receives 0-100 reflecting the browser→server transfer.
+ */
+export const createVideoApi = async (
+  formData: FormData,
+  onUploadProgress?: (pct: number) => void
+) => {
+  const res = await axiosInstance.post<ApiResponse<{ video: Video }>>('/videos', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress: (event) => {
+      if (event.total && onUploadProgress) {
+        onUploadProgress(Math.round((event.loaded / event.total) * 100))
+      }
+    },
+  })
+  return res.data.data.video
 }
 
 export const getVideosApi = async (filters: VideoFilters = {}) => {
@@ -34,11 +36,6 @@ export const getVideosApi = async (filters: VideoFilters = {}) => {
 
 export const getVideoByIdApi = async (id: string) => {
   const res = await axiosInstance.get<ApiResponse<{ video: Video }>>(`/videos/${id}`)
-  return res.data.data.video
-}
-
-export const createVideoApi = async (payload: UploadVideoPayload) => {
-  const res = await axiosInstance.post<ApiResponse<{ video: Video }>>('/videos', payload)
   return res.data.data.video
 }
 

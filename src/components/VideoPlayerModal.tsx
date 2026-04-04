@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import type { VideoItem } from './VideoCard'
-import { getVideoBlob } from '../utils/videoStorage'
 
 interface VideoPlayerModalProps {
   video: VideoItem
@@ -16,37 +15,11 @@ function formatTime(seconds: number): string {
 export default function VideoPlayerModal({ video, onClose }: VideoPlayerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
-  const [resolvedUrl, setResolvedUrl] = useState<string | null>(video.videoUrl ?? null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(1)
   const [showVolume, setShowVolume] = useState(false)
-  const [notAvailable, setNotAvailable] = useState(false)
-
-  // Load video from IndexedDB if we have a storageKey
-  useEffect(() => {
-    if (video.videoUrl) return
-
-    if (!video.storageKey) {
-      setNotAvailable(true)
-      return
-    }
-
-    let objectUrl: string
-    getVideoBlob(video.storageKey).then((blob) => {
-      if (!blob) {
-        setNotAvailable(true)
-        return
-      }
-      objectUrl = URL.createObjectURL(blob)
-      setResolvedUrl(objectUrl)
-    })
-
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [video.storageKey, video.videoUrl])
 
   function togglePlay() {
     const v = videoRef.current
@@ -55,7 +28,6 @@ export default function VideoPlayerModal({ video, onClose }: VideoPlayerModalPro
     else { v.play(); setIsPlaying(true) }
   }
 
-  // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
@@ -85,13 +57,9 @@ export default function VideoPlayerModal({ video, onClose }: VideoPlayerModalPro
 
   function toggleMute() {
     if (!videoRef.current) return
-    if (volume > 0) {
-      setVolume(0)
-      videoRef.current.volume = 0
-    } else {
-      setVolume(1)
-      videoRef.current.volume = 1
-    }
+    const next = volume > 0 ? 0 : 1
+    setVolume(next)
+    videoRef.current.volume = next
   }
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
@@ -116,15 +84,10 @@ export default function VideoPlayerModal({ video, onClose }: VideoPlayerModalPro
 
         {/* Video stage */}
         <div className="relative flex-1 min-h-0 bg-inverse-surface group">
-          {notAvailable ? (
-            <div className="w-full h-full min-h-48 flex flex-col items-center justify-center text-on-surface-variant gap-3">
-              <span className="material-symbols-outlined text-5xl opacity-40">video_off</span>
-              <p className="text-sm opacity-60">Video not available on this device</p>
-            </div>
-          ) : resolvedUrl ? (
+          {video.videoUrl ? (
             <video
               ref={videoRef}
-              src={resolvedUrl}
+              src={video.videoUrl}
               className="w-full h-full object-contain"
               onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
               onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
@@ -132,15 +95,14 @@ export default function VideoPlayerModal({ video, onClose }: VideoPlayerModalPro
               onClick={togglePlay}
             />
           ) : (
-            <div className="w-full h-full min-h-48 flex items-center justify-center">
-              <span className="material-symbols-outlined animate-spin text-3xl text-on-surface-variant opacity-40">
-                progress_activity
-              </span>
-            </div>
+            <div
+              className="w-full h-full min-h-48"
+              style={{ background: video.thumbnailGradient ?? 'linear-gradient(135deg, #4355b9, #535f78)' }}
+            />
           )}
 
           {/* Center play/pause overlay */}
-          {resolvedUrl && !notAvailable && (
+          {video.videoUrl && (
             <div
               className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
               onClick={togglePlay}
@@ -154,7 +116,7 @@ export default function VideoPlayerModal({ video, onClose }: VideoPlayerModalPro
           )}
 
           {/* Controls bar */}
-          {resolvedUrl && !notAvailable && (
+          {video.videoUrl && (
             <div
               className="absolute bottom-3 sm:bottom-6 left-1/2 -translate-x-1/2 w-[96%] rounded-xl sm:rounded-2xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 shadow-sm border border-white/10"
               style={{ background: 'rgba(252,249,248,0.6)', backdropFilter: 'blur(24px)' }}

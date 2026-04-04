@@ -34,7 +34,10 @@ export interface Video {
   _id: string
   title: string
   description: string
-  storageKey: string
+  videoUrl: string
+  thumbnailUrl: string | null
+  imagekitFileId: string
+  imagekitThumbnailFileId: string | null
   originalName: string
   fileSize: number
   mimeType: string

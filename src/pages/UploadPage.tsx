@@ -51,17 +51,24 @@ export default function UploadPage() {
     setTitleInput('')
 
     try {
-      // Simulate save progress (IndexedDB write + metadata POST)
-      setQueue((prev) =>
-        prev.map((q) => q.id === queueId ? { ...q, progress: 40, timeRemaining: 'Storing locally…' } : q)
+      await uploadVideo(
+        file,
+        { title },
+        (pct) => {
+          setQueue((prev) =>
+            prev.map((q) =>
+              q.id === queueId
+                ? { ...q, progress: pct, timeRemaining: pct < 100 ? `Uploading… ${pct}%` : 'Processing on server…', state: pct < 100 ? 'uploading' : 'transcoding' }
+                : q
+            )
+          )
+        }
       )
-
-      await uploadVideo(file, { title })
 
       setQueue((prev) =>
         prev.map((q) =>
           q.id === queueId
-            ? { ...q, progress: 100, state: 'transcoding', timeRemaining: 'Processing on server…' }
+            ? { ...q, progress: 100, state: 'transcoding', timeRemaining: 'Done — sensitivity check running…' }
             : q
         )
       )

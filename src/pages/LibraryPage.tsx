@@ -3,25 +3,22 @@ import PageHeader from '../components/PageHeader'
 import VideoCard, { type VideoItem } from '../components/VideoCard'
 import VideoPlayerModal from '../components/VideoPlayerModal'
 import { useVideos } from '../contexts/VideoContext'
-import { getThumbnail } from '../utils/videoStorage'
 import type { Video } from '../types/api.types'
 
 function mapVideoToItem(v: Video): VideoItem {
-  const thumbnail = getThumbnail(v.storageKey) ?? undefined
   return {
     id: v._id,
     title: v.title,
     meta: v.description || v.originalName,
     status: v.status,
-    storageKey: v.storageKey,
-    thumbnail,
+    videoUrl: v.videoUrl,
+    thumbnail: v.thumbnailUrl ?? undefined,
     quality: v.resolution?.width
-      ? `${v.resolution.width >= 3840 ? '4K' : v.resolution.width >= 1920 ? '1080p' : '720p'}`
+      ? v.resolution.width >= 3840 ? '4K'
+        : v.resolution.width >= 1920 ? '1080p' : '720p'
       : undefined,
     publishedAt: new Date(v.createdAt).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+      month: 'short', day: 'numeric', year: 'numeric',
     }),
   }
 }
