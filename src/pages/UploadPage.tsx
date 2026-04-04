@@ -1,4 +1,5 @@
 import { useState, useRef, type DragEvent, type ChangeEvent } from 'react'
+import { toast } from 'react-toastify'
 import PageHeader from '../components/PageHeader'
 import QueueItem, { type QueueItemData } from '../components/QueueItem'
 import { useVideos } from '../contexts/VideoContext'
@@ -81,9 +82,10 @@ export default function UploadPage() {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Upload failed.'
+      toast.error(msg)
       setQueue((prev) =>
         prev.map((q) =>
-          q.id === queueId ? { ...q, state: 'uploading', timeRemaining: msg, progress: 0 } : q
+          q.id === queueId ? { ...q, state: 'uploading', timeRemaining: 'Upload failed', progress: 0 } : q
         )
       )
     }

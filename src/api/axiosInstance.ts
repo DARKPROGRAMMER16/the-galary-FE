@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { toast } from 'react-toastify'
 
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
@@ -20,19 +21,33 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor — handle 401 globally
+// Response interceptor — handle errors globally
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+    const message: string =
+      error.response?.data?.message ||
+      error.message ||
+      'Something went wrong.'
+
+    if (status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      // Only redirect if not already on auth pages
       const isAuthPage = ['/login', '/signup'].includes(window.location.pathname)
       if (!isAuthPage) {
         window.location.href = '/login'
       }
+      // Let auth pages handle 401 errors themselves (form-level error)
+      return Promise.reject(error)
     }
+
+    // For upload requests, skip global toast — UploadPage handles it inline
+    const isUpload = error.config?.url?.includes('/videos') && error.config?.method === 'post'
+    if (!isUpload) {
+      toast.error(message)
+    }
+
     return Promise.reject(error)
   }
 )

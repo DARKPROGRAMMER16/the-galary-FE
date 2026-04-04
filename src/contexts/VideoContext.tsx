@@ -6,6 +6,7 @@ import {
   useEffect,
   type ReactNode,
 } from 'react'
+import { toast } from 'react-toastify'
 import { io, type Socket } from 'socket.io-client'
 import {
   getVideosApi,
@@ -85,13 +86,22 @@ export function VideoProvider({ children }: { children: ReactNode }) {
         sensitivityDetails: Video['sensitivityDetails']
         video: Video
       }) => {
-        setVideos((prev) =>
-          prev.map((v) =>
+        setVideos((prev) => {
+          const updated = prev.map((v) =>
             v._id === videoId
               ? { ...v, status, sensitivityScore, sensitivityDetails, processingProgress: 100 }
               : v
           )
-        )
+          const video = updated.find((v) => v._id === videoId)
+          if (video) {
+            if (status === 'flagged') {
+              toast.warn(`"${video.title}" was flagged for sensitive content.`)
+            } else {
+              toast.success(`"${video.title}" is ready.`)
+            }
+          }
+          return updated
+        })
       }
     )
 
@@ -99,6 +109,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
       setVideos((prev) =>
         prev.map((v) => (v._id === videoId ? { ...v, status: 'error' } : v))
       )
+      toast.error('Sensitivity analysis failed for a video.')
     })
 
     return () => { socket.disconnect() }
@@ -118,6 +129,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Failed to load videos.'
       setError(message)
+      // axiosInstance interceptor already shows a toast for non-upload errors
     } finally {
       setIsLoading(false)
     }

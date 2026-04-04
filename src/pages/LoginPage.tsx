@@ -1,10 +1,24 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import AuthLayout from '../components/AuthLayout'
 import AppLogo from '../components/AppLogo'
 import FormInput from '../components/FormInput'
 import PrimaryButton from '../components/PrimaryButton'
 import { useAuth } from '../contexts/AuthContext'
+import { z } from 'zod'
+import { loginSchema } from '../utils/validationSchemas'
+
+type FieldErrors = Partial<Record<'email' | 'password', string>>
+
+function collectErrors(issues: z.core.$ZodIssue[]): FieldErrors {
+  const errs: FieldErrors = {}
+  for (const issue of issues) {
+    const key = issue.path[0] as keyof FieldErrors
+    if (!errs[key]) errs[key] = issue.message
+  }
+  return errs
+}
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -12,11 +26,18 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
-    setError('')
+    setFieldErrors({})
+
+    const result = loginSchema.safeParse({ email, password })
+    if (!result.success) {
+      setFieldErrors(collectErrors(result.error.issues))
+      return
+    }
+
     try {
       await login({ email, password })
       navigate('/library')
@@ -24,7 +45,7 @@ export default function LoginPage() {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Invalid email or password.'
-      setError(message)
+      toast.error(message)
     }
   }
 
@@ -33,13 +54,7 @@ export default function LoginPage() {
       <AppLogo subtitle="Welcome back to the gallery." />
 
       <div className="bg-surface-container-lowest rounded-xl p-8 md:p-10 shadow-[0_40px_80px_-15px_rgba(50,50,50,0.04)]">
-        {error && (
-          <div className="mb-6 px-4 py-3 rounded-xl bg-error-container text-on-error-container text-sm font-medium">
-            {error}
-          </div>
-        )}
-
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <form className="space-y-6" onSubmit={handleSubmit} noValidate>
           <FormInput
             id="email"
             label="Email"
@@ -48,7 +63,7 @@ export default function LoginPage() {
             placeholder="name@example.com"
             value={email}
             onChange={setEmail}
-            required
+            error={fieldErrors.email}
           />
 
           <FormInput
@@ -59,7 +74,7 @@ export default function LoginPage() {
             placeholder="••••••••"
             value={password}
             onChange={setPassword}
-            required
+            error={fieldErrors.password}
             trailing={
               <button
                 type="button"

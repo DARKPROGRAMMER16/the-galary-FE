@@ -1,8 +1,22 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import FormInput from '../components/FormInput'
 import PrimaryButton from '../components/PrimaryButton'
 import { useAuth } from '../contexts/AuthContext'
+import { z } from 'zod'
+import { signUpSchema } from '../utils/validationSchemas'
+
+type FieldErrors = Partial<Record<'name' | 'organisation' | 'email' | 'password' | 'confirmPassword', string>>
+
+function collectErrors(issues: z.core.$ZodIssue[]): FieldErrors {
+  const errs: FieldErrors = {}
+  for (const issue of issues) {
+    const key = issue.path[0] as keyof FieldErrors
+    if (!errs[key]) errs[key] = issue.message
+  }
+  return errs
+}
 
 export default function SignUpPage() {
   const navigate = useNavigate()
@@ -12,19 +26,15 @@ export default function SignUpPage() {
   const [organisation, setOrganisation] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   async function handleSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
-    setError('')
+    setFieldErrors({})
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.')
-      return
-    }
-
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+    const result = signUpSchema.safeParse({ name, email, organisation, password, confirmPassword })
+    if (!result.success) {
+      setFieldErrors(collectErrors(result.error.issues))
       return
     }
 
@@ -35,7 +45,7 @@ export default function SignUpPage() {
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Registration failed. Please try again.'
-      setError(message)
+      toast.error(message)
     }
   }
 
@@ -65,13 +75,7 @@ export default function SignUpPage() {
               </p>
             </div>
 
-            {error && (
-              <div className="mb-6 px-4 py-3 rounded-xl bg-error-container text-on-error-container text-sm font-medium">
-                {error}
-              </div>
-            )}
-
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form className="space-y-6" onSubmit={handleSubmit} noValidate>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormInput
                   id="full_name"
@@ -80,7 +84,7 @@ export default function SignUpPage() {
                   placeholder="Jane Doe"
                   value={name}
                   onChange={setName}
-                  required
+                  error={fieldErrors.name}
                 />
                 <FormInput
                   id="organisation"
@@ -89,7 +93,7 @@ export default function SignUpPage() {
                   placeholder="Acme Studios"
                   value={organisation}
                   onChange={setOrganisation}
-                  required
+                  error={fieldErrors.organisation}
                 />
               </div>
 
@@ -100,7 +104,7 @@ export default function SignUpPage() {
                 placeholder="jane@thegalary.com"
                 value={email}
                 onChange={setEmail}
-                required
+                error={fieldErrors.email}
               />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -111,7 +115,7 @@ export default function SignUpPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={setPassword}
-                  required
+                  error={fieldErrors.password}
                 />
                 <FormInput
                   id="confirm_password"
@@ -120,7 +124,7 @@ export default function SignUpPage() {
                   placeholder="••••••••"
                   value={confirmPassword}
                   onChange={setConfirmPassword}
-                  required
+                  error={fieldErrors.confirmPassword}
                 />
               </div>
 

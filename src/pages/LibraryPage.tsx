@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { toast } from 'react-toastify'
 import PageHeader from '../components/PageHeader'
 import VideoCard, { type VideoItem } from '../components/VideoCard'
 import VideoPlayerModal from '../components/VideoPlayerModal'
@@ -54,21 +55,22 @@ function EditModal({ video, onClose, onSave }: EditModalProps) {
   const [title, setTitle] = useState(video.title)
   const [description, setDescription] = useState(video.description ?? '')
   const [tags, setTags] = useState(video.tags?.join(', ') ?? '')
+  const [titleError, setTitleError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
 
   async function handleSave() {
-    if (!title.trim()) { setError('Title is required.'); return }
+    if (!title.trim()) { setTitleError('Title is required.'); return }
+    setTitleError('')
     setSaving(true)
-    setError('')
     try {
       await onSave(video.id, { title: title.trim(), description, tags })
+      toast.success('Video details updated.')
       onClose()
     } catch (err: unknown) {
-      setError(
+      const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Failed to save changes.'
-      )
+      toast.error(message)
     } finally {
       setSaving(false)
     }
@@ -90,12 +92,6 @@ function EditModal({ video, onClose, onSave }: EditModalProps) {
           </button>
         </div>
 
-        {error && (
-          <div className="mb-5 px-4 py-3 rounded-xl bg-error-container text-on-error-container text-sm">
-            {error}
-          </div>
-        )}
-
         <div className="space-y-5">
           <div>
             <label className="block text-xs font-bold uppercase tracking-widest text-on-surface-variant mb-2">
@@ -104,11 +100,12 @@ function EditModal({ video, onClose, onSave }: EditModalProps) {
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-body outline-none focus:ring-2 focus:ring-primary transition-all"
+              onChange={(e) => { setTitle(e.target.value); if (titleError) setTitleError('') }}
+              className={`w-full px-4 py-3 rounded-xl bg-surface-container-high text-on-surface font-body outline-none transition-all ${titleError ? 'ring-2 ring-error' : 'focus:ring-2 focus:ring-primary'}`}
               placeholder="Video title"
               autoFocus
             />
+            {titleError && <p className="text-xs text-error mt-1.5">{titleError}</p>}
           </div>
 
           <div>
@@ -174,7 +171,13 @@ function DeleteModal({ video, onClose, onConfirm }: DeleteModalProps) {
     setDeleting(true)
     try {
       await onConfirm()
+      toast.success('Video deleted.')
       onClose()
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to delete video.'
+      toast.error(message)
     } finally {
       setDeleting(false)
     }
