@@ -10,6 +10,7 @@ import type { User } from '../types/api.types'
 
 function RoleBadge({ role }: { role: User['role'] }) {
   const styles: Record<User['role'], string> = {
+    superadmin: 'bg-error-container text-on-error-container',
     admin: 'bg-primary-container text-on-primary-container',
     editor: 'bg-secondary-container text-on-secondary-container',
     viewer: 'bg-surface-container-high text-on-surface-variant',

@@ -9,7 +9,7 @@ export interface User {
   _id: string
   name: string
   email: string
-  role: 'viewer' | 'editor' | 'admin'
+  role: 'viewer' | 'editor' | 'admin' | 'superadmin'
   organisation: string
   isActive: boolean
   lastLogin?: string
@@ -75,6 +75,12 @@ export interface VideoStats {
   pending: number
   error: number
   totalSize: number
+}
+
+export interface Organisation {
+  name: string
+  memberCount: number
+  videoCount: number
 }
 
 export interface AuthResponse {

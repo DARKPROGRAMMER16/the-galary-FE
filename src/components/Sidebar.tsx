@@ -2,9 +2,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 const allNavItems = [
-  { label: 'Library', icon: 'video_library', href: '/library', roles: ['viewer', 'editor', 'admin'] },
-  { label: 'Upload', icon: 'cloud_upload', href: '/upload', roles: ['editor', 'admin'] },
-  { label: 'Users', icon: 'manage_accounts', href: '/users', roles: ['editor', 'admin'] },
+  { label: 'Organisations', icon: 'corporate_fare',  href: '/organisations', roles: ['superadmin'] },
+  { label: 'Library',       icon: 'video_library',   href: '/library',       roles: ['viewer', 'editor', 'admin'] },
+  { label: 'Upload',        icon: 'cloud_upload',     href: '/upload',        roles: ['editor', 'admin'] },
+  { label: 'Users',         icon: 'manage_accounts',  href: '/users',         roles: ['editor', 'admin'] },
 ] as const
 
 interface SidebarProps {

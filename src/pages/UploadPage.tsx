@@ -4,11 +4,40 @@ import PageHeader from '../components/PageHeader'
 import QueueItem, { type QueueItemData } from '../components/QueueItem'
 import { useVideos } from '../contexts/VideoContext'
 
+const MAX_SIZE_BYTES = 10 * 1024 * 1024   // 10 MB
+const MAX_DURATION_SECONDS = 60            // 1 minute
+
 const guidelines: { title: string; body: string }[] = [
+  { title: 'Max file size', body: 'Videos must be 10 MB or smaller.' },
+  { title: 'Max duration',  body: 'Videos cannot exceed 1 minute (60 seconds).' },
   { title: 'Codec optimized', body: 'H.264 or ProRes 422 are recommended for best processing.' },
-  { title: 'Color Space',     body: 'Rec.709 or Rec.2020 (HDR) are fully supported.' },
-  { title: 'Bitrate Control', body: 'Dynamic transcoding ensures smooth 60fps delivery.' },
 ]
+
+function getVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const video = document.createElement('video')
+    video.preload = 'metadata'
+    video.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(video.duration) }
+    video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not read video metadata.')) }
+    video.src = url
+  })
+}
+
+async function validateFile(file: File): Promise<string | null> {
+  if (file.size > MAX_SIZE_BYTES) {
+    return `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is 10 MB.`
+  }
+  try {
+    const duration = await getVideoDuration(file)
+    if (duration > MAX_DURATION_SECONDS) {
+      return `Video too long (${Math.ceil(duration)}s). Maximum duration is 60 seconds.`
+    }
+  } catch {
+    // If we can't read duration in the browser, let the server validate
+  }
+  return null
+}
 
 export default function UploadPage() {
   const { uploadVideo } = useVideos()
@@ -27,7 +56,12 @@ export default function UploadPage() {
     e.target.value = ''
   }
 
-  function openTitleModal(file: File) {
+  async function openTitleModal(file: File) {
+    const error = await validateFile(file)
+    if (error) {
+      toast.error(error)
+      return
+    }
     setTitleInput(file.name.replace(/\.[^/.]+$/, ''))
     setTitleModal({ file })
   }
