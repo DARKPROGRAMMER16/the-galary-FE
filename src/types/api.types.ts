@@ -52,6 +52,7 @@ export interface Video {
   sensitivityScore: number | null
   sensitivityDetails: SensitivityDetails
   tags: string[]
+  assignedTo: string[]
   uploadedBy: { _id: string; name: string; email: string } | string
   organisation: string
   isDeleted: boolean

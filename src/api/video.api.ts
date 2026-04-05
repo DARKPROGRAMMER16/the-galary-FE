@@ -51,6 +51,11 @@ export const deleteVideoApi = async (id: string) => {
   await axiosInstance.delete(`/videos/${id}`)
 }
 
+export const assignVideoApi = async (id: string, viewerIds: string[]) => {
+  const res = await axiosInstance.patch<ApiResponse<{ video: Video }>>(`/videos/${id}/assign`, { viewerIds })
+  return res.data.data.video
+}
+
 export const getVideoStatsApi = async () => {
   const res = await axiosInstance.get<ApiResponse<{ stats: VideoStats }>>('/videos/stats')
   return res.data.data.stats

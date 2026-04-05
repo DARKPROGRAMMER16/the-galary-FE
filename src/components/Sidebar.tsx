@@ -1,10 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
-const navItems = [
-  { label: 'Library', icon: 'video_library', href: '/library' },
-  { label: 'Upload', icon: 'cloud_upload', href: '/upload' },
-]
+const allNavItems = [
+  { label: 'Library', icon: 'video_library', href: '/library', roles: ['viewer', 'editor', 'admin'] },
+  { label: 'Upload', icon: 'cloud_upload', href: '/upload', roles: ['editor', 'admin'] },
+  { label: 'Users', icon: 'manage_accounts', href: '/users', roles: ['editor', 'admin'] },
+] as const
 
 interface SidebarProps {
   mobileOpen?: boolean
@@ -17,6 +18,9 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   const navigate = useNavigate()
 
   const avatarInitial = user?.name?.charAt(0).toUpperCase() ?? '?'
+  const navItems = allNavItems.filter((item) =>
+    user?.role ? (item.roles as readonly string[]).includes(user.role) : false
+  )
 
   function handleLogout() {
     logout()

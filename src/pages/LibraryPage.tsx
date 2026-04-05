@@ -4,7 +4,10 @@ import PageHeader from '../components/PageHeader'
 import VideoCard, { type VideoItem } from '../components/VideoCard'
 import VideoPlayerModal from '../components/VideoPlayerModal'
 import { useVideos } from '../contexts/VideoContext'
-import type { Video } from '../types/api.types'
+import { useAuth } from '../contexts/AuthContext'
+import { getOrgUsersApi } from '../api/org.api'
+import { assignVideoApi } from '../api/video.api'
+import type { Video, User } from '../types/api.types'
 
 function mapVideoToItem(v: Video): VideoItem {
   return {
@@ -23,6 +26,8 @@ function mapVideoToItem(v: Video): VideoItem {
     publishedAt: new Date(v.createdAt).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric',
     }),
+    assignedTo: v.assignedTo ?? [],
+    organisation: v.organisation,
   }
 }
 
@@ -221,23 +226,178 @@ function DeleteModal({ video, onClose, onConfirm }: DeleteModalProps) {
   )
 }
 
+// ─── Assign modal ──────────────────────────────────────────────────────────────
+
+interface AssignModalProps {
+  video: VideoItem
+  organisation: string
+  onClose: () => void
+  onSave: (id: string, viewerIds: string[]) => Promise<void>
+}
+
+function AssignModal({ video, organisation, onClose, onSave }: AssignModalProps) {
+  const [viewers, setViewers] = useState<User[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set(video.assignedTo ?? []))
+  const [loadingViewers, setLoadingViewers] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoadingViewers(true)
+    getOrgUsersApi(organisation)
+      .then((users) => {
+        if (!cancelled) setViewers(users.filter((u) => u.role === 'viewer'))
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Failed to load viewers.')
+      })
+      .finally(() => { if (!cancelled) setLoadingViewers(false) })
+    return () => { cancelled = true }
+  }, [organisation])
+
+  function toggleViewer(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await onSave(video.id, Array.from(selected))
+      toast.success('Assignment saved.')
+      onClose()
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to assign video.'
+      toast.error(message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-inverse-surface/30 flex items-center justify-center p-6">
+      <div
+        className="bg-surface-container-lowest rounded-2xl p-8 w-full max-w-md shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-headline font-semibold text-xl text-on-background">Assign viewers</h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+        <p className="text-sm text-on-surface-variant mb-6 leading-relaxed">
+          Select which viewers can see <span className="font-semibold text-on-surface">"{video.title}"</span>.
+        </p>
+
+        {loadingViewers ? (
+          <div className="flex items-center justify-center py-8 text-on-surface-variant">
+            <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
+            Loading viewers…
+          </div>
+        ) : viewers.length === 0 ? (
+          <div className="flex flex-col items-center py-8 text-on-surface-variant opacity-60">
+            <span className="material-symbols-outlined text-3xl mb-2">person_search</span>
+            <p className="text-sm">No viewers in this organisation yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-1 max-h-64 overflow-y-auto mb-6 -mx-2 px-2">
+            {viewers.map((viewer) => {
+              const checked = selected.has(viewer._id)
+              return (
+                <button
+                  key={viewer._id}
+                  onClick={() => toggleViewer(viewer._id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${
+                    checked
+                      ? 'bg-primary-container/40 text-on-surface'
+                      : 'hover:bg-surface-container-low text-on-surface-variant'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                    checked ? 'bg-primary border-primary' : 'border-outline-variant'
+                  }`}>
+                    {checked && <span className="material-symbols-outlined text-on-primary text-sm" style={{ fontSize: '14px' }}>check</span>}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate text-on-background">{viewer.name}</p>
+                    <p className="text-xs opacity-60 truncate">{viewer.email}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-on-surface font-semibold hover:bg-surface-container-low transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || loadingViewers}
+            className="flex-1 py-3 rounded-xl bg-primary text-on-primary font-bold hover:bg-primary-dim transition-all disabled:opacity-60"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LibraryPage() {
   const { videos, isLoading, error, fetchVideos, removeVideo, editVideo } = useVideos()
+  const { user } = useAuth()
   const [search, setSearch] = useState('')
   const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null)
   const [editTarget, setEditTarget] = useState<VideoItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<VideoItem | null>(null)
+  const [assignTarget, setAssignTarget] = useState<VideoItem | null>(null)
+
+  // Track local assignment state so the modal reflects latest saved values
+  const [assignedMap, setAssignedMap] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
     fetchVideos()
   }, [fetchVideos])
 
-  const items = videos.map(mapVideoToItem)
+  // Sync assignedMap from fresh server data
+  useEffect(() => {
+    const map: Record<string, string[]> = {}
+    videos.forEach((v) => { map[v._id] = v.assignedTo ?? [] })
+    setAssignedMap(map)
+  }, [videos])
+
+  const canManage = user?.role === 'admin' || user?.role === 'editor'
+
+  const items = videos.map((v) => ({
+    ...mapVideoToItem(v),
+    assignedTo: assignedMap[v._id] ?? v.assignedTo ?? [],
+  }))
+
   const filtered = items.filter((v) =>
     v.title.toLowerCase().includes(search.toLowerCase())
   )
+
+  async function handleAssignSave(id: string, viewerIds: string[]) {
+    const updated = await assignVideoApi(id, viewerIds)
+    setAssignedMap((prev) => ({ ...prev, [id]: updated.assignedTo ?? [] }))
+  }
 
   return (
     <>
@@ -263,7 +423,11 @@ export default function LibraryPage() {
       {!isLoading && !error && filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-on-surface-variant opacity-60">
           <span className="material-symbols-outlined text-5xl mb-4">video_library</span>
-          <p className="text-base font-medium">No videos yet. Upload your first one!</p>
+          <p className="text-base font-medium">
+            {user?.role === 'viewer'
+              ? 'No videos have been assigned to you yet.'
+              : 'No videos yet. Upload your first one!'}
+          </p>
         </div>
       )}
 
@@ -274,8 +438,9 @@ export default function LibraryPage() {
               key={video.id}
               video={video}
               onClick={setActiveVideo}
-              onEdit={setEditTarget}
-              onDelete={setDeleteTarget}
+              onEdit={canManage ? setEditTarget : undefined}
+              onDelete={canManage ? setDeleteTarget : undefined}
+              onAssign={canManage ? setAssignTarget : undefined}
             />
           ))}
         </div>
@@ -307,6 +472,16 @@ export default function LibraryPage() {
             await removeVideo(deleteTarget.id)
             setDeleteTarget(null)
           }}
+        />
+      )}
+
+      {/* Assign modal */}
+      {assignTarget && (
+        <AssignModal
+          video={assignTarget}
+          organisation={assignTarget.organisation ?? user?.organisation ?? ''}
+          onClose={() => setAssignTarget(null)}
+          onSave={handleAssignSave}
         />
       )}
     </>

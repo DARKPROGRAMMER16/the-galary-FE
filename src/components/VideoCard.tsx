@@ -14,6 +14,8 @@ export interface VideoItem {
   quality?: string
   views?: string
   publishedAt?: string
+  assignedTo?: string[]
+  organisation?: string
 }
 
 interface VideoCardProps {
@@ -21,9 +23,10 @@ interface VideoCardProps {
   onClick?: (video: VideoItem) => void
   onEdit?: (video: VideoItem) => void
   onDelete?: (video: VideoItem) => void
+  onAssign?: (video: VideoItem) => void
 }
 
-export default function VideoCard({ video, onClick, onEdit, onDelete }: VideoCardProps) {
+export default function VideoCard({ video, onClick, onEdit, onDelete, onAssign }: VideoCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -84,30 +87,52 @@ export default function VideoCard({ video, onClick, onEdit, onDelete }: VideoCar
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-44 bg-surface-container-lowest rounded-xl shadow-xl border border-outline-variant/20 overflow-hidden z-20">
-              <button
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-low transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setMenuOpen(false)
-                  onEdit?.(video)
-                }}
-              >
-                <span className="material-symbols-outlined text-lg">edit</span>
-                Edit details
-              </button>
-              <div className="h-px bg-outline-variant/10 mx-3" />
-              <button
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-error hover:bg-error-container/30 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setMenuOpen(false)
-                  onDelete?.(video)
-                }}
-              >
-                <span className="material-symbols-outlined text-lg">delete</span>
-                Delete
-              </button>
+            <div className="absolute right-0 top-full mt-1 w-48 bg-surface-container-lowest rounded-xl shadow-xl border border-outline-variant/20 overflow-hidden z-20">
+              {onEdit && (
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-low transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setMenuOpen(false)
+                    onEdit(video)
+                  }}
+                >
+                  <span className="material-symbols-outlined text-lg">edit</span>
+                  Edit details
+                </button>
+              )}
+              {onAssign && (
+                <>
+                  {onEdit && <div className="h-px bg-outline-variant/10 mx-3" />}
+                  <button
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-on-surface hover:bg-surface-container-low transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setMenuOpen(false)
+                      onAssign(video)
+                    }}
+                  >
+                    <span className="material-symbols-outlined text-lg">person_add</span>
+                    Assign viewers
+                  </button>
+                </>
+              )}
+              {onDelete && (
+                <>
+                  <div className="h-px bg-outline-variant/10 mx-3" />
+                  <button
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-error hover:bg-error-container/30 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setMenuOpen(false)
+                      onDelete(video)
+                    }}
+                  >
+                    <span className="material-symbols-outlined text-lg">delete</span>
+                    Delete
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
