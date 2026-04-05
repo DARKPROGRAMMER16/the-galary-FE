@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'react-toastify'
 import PageHeader from '../components/PageHeader'
 import VideoCard, { type VideoItem } from '../components/VideoCard'
@@ -372,9 +372,17 @@ export default function LibraryPage() {
   // Track local assignment state so the modal reflects latest saved values
   const [assignedMap, setAssignedMap] = useState<Record<string, string[]>>({})
 
+  // Debounce search — wait 350 ms after the user stops typing before hitting the API
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    fetchVideos()
-  }, [fetchVideos])
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      fetchVideos({ search: search.trim() || undefined })
+    }, 350)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [search, fetchVideos])
 
   // Sync assignedMap from fresh server data
   useEffect(() => {
@@ -389,10 +397,6 @@ export default function LibraryPage() {
     ...mapVideoToItem(v),
     assignedTo: assignedMap[v._id] ?? v.assignedTo ?? [],
   }))
-
-  const filtered = items.filter((v) =>
-    v.title.toLowerCase().includes(search.toLowerCase())
-  )
 
   async function handleAssignSave(id: string, viewerIds: string[]) {
     const updated = await assignVideoApi(id, viewerIds)
@@ -420,20 +424,22 @@ export default function LibraryPage() {
         </div>
       )}
 
-      {!isLoading && !error && filtered.length === 0 && (
+      {!isLoading && !error && items.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-on-surface-variant opacity-60">
           <span className="material-symbols-outlined text-5xl mb-4">video_library</span>
           <p className="text-base font-medium">
-            {user?.role === 'viewer'
+            {search.trim()
+              ? `No videos match "${search}".`
+              : user?.role === 'viewer'
               ? 'No videos have been assigned to you yet.'
               : 'No videos yet. Upload your first one!'}
           </p>
         </div>
       )}
 
-      {!isLoading && filtered.length > 0 && (
+      {!isLoading && items.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          {filtered.map((video) => (
+          {items.map((video) => (
             <VideoCard
               key={video.id}
               video={video}

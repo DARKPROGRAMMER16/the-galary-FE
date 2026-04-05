@@ -7,6 +7,7 @@ import OrganisationsPage from './pages/OrganisationsPage'
 import OrgDetailPage from './pages/OrgDetailPage'
 import LoginPage from './pages/LoginPage'
 import SignUpPage from './pages/SignUpPage'
+import SuperAdminRegisterPage from './pages/SuperAdminRegisterPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import PrivilegedRoute from './components/PrivilegedRoute'
 import SuperAdminRoute from './components/SuperAdminRoute'
@@ -27,6 +28,7 @@ export default function App() {
         {/* Auth */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/superadmin-setup" element={<SuperAdminRegisterPage />} />
 
         {/* Protected dashboard */}
         <Route

@@ -28,3 +28,13 @@ export const getMeApi = async () => {
   const res = await axiosInstance.get<ApiResponse<{ user: User }>>('/auth/me')
   return res.data.data.user
 }
+
+export const registerSuperAdminApi = async (payload: {
+  name: string
+  email: string
+  password: string
+  secretKey: string
+}) => {
+  const res = await axiosInstance.post<ApiResponse<AuthResponse>>('/auth/register/superadmin', payload)
+  return res.data.data
+}

@@ -23,6 +23,7 @@ interface VideoContextType {
   pagination: Pagination | null
   isLoading: boolean
   error: string | null
+  processingLogs: Record<string, string[]>
   fetchVideos: (filters?: VideoFilters) => Promise<void>
   uploadVideo: (
     file: File,
@@ -46,6 +47,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [processingLogs, setProcessingLogs] = useState<Record<string, string[]>>({})
 
   // ─── Real-time socket updates ────────────────────────────────────────────
   useEffect(() => {
@@ -60,6 +62,16 @@ export function VideoProvider({ children }: { children: ReactNode }) {
     socket.on('connect_error', (err) => {
       console.warn('[Socket] connect error:', err.message)
     })
+
+    socket.on(
+      'video:log',
+      ({ videoId, message }: { videoId: string; message: string }) => {
+        setProcessingLogs((prev) => ({
+          ...prev,
+          [videoId]: [...(prev[videoId] ?? []), message],
+        }))
+      }
+    )
 
     socket.on(
       'video:progress',
@@ -102,6 +114,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
           }
           return updated
         })
+        setTimeout(() => setProcessingLogs((prev) => { const n = { ...prev }; delete n[videoId]; return n }), 8000)
       }
     )
 
@@ -110,6 +123,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
         prev.map((v) => (v._id === videoId ? { ...v, status: 'error' } : v))
       )
       toast.error('Sensitivity analysis failed for a video.')
+      setTimeout(() => setProcessingLogs((prev) => { const n = { ...prev }; delete n[videoId]; return n }), 8000)
     })
 
     return () => { socket.disconnect() }
@@ -172,7 +186,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
 
   return (
     <VideoContext.Provider
-      value={{ videos, pagination, isLoading, error, fetchVideos, uploadVideo, removeVideo, editVideo }}
+      value={{ videos, pagination, isLoading, error, processingLogs, fetchVideos, uploadVideo, removeVideo, editVideo }}
     >
       {children}
     </VideoContext.Provider>

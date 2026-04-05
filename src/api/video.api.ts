@@ -3,6 +3,7 @@ import type { ApiResponse, Video, VideoListResponse, VideoStats } from '../types
 
 export interface VideoFilters {
   status?: string
+  search?: string
   page?: number
   limit?: number
   sort?: string

@@ -40,7 +40,7 @@ async function validateFile(file: File): Promise<string | null> {
 }
 
 export default function UploadPage() {
-  const { uploadVideo } = useVideos()
+  const { uploadVideo, processingLogs } = useVideos()
   const [dragging, setDragging] = useState(false)
   const [queue, setQueue] = useState<QueueItemData[]>([])
   const [titleModal, setTitleModal] = useState<{ file: File } | null>(null)
@@ -86,7 +86,7 @@ export default function UploadPage() {
     setTitleInput('')
 
     try {
-      await uploadVideo(
+      const video = await uploadVideo(
         file,
         { title },
         (pct) => {
@@ -100,10 +100,11 @@ export default function UploadPage() {
         }
       )
 
+      // Store the backend videoId so we can match socket logs to this queue item
       setQueue((prev) =>
         prev.map((q) =>
           q.id === queueId
-            ? { ...q, progress: 100, state: 'transcoding', timeRemaining: 'Done — sensitivity check running…' }
+            ? { ...q, progress: 100, state: 'transcoding', timeRemaining: 'Sensitivity analysis running…', videoId: video._id }
             : q
         )
       )
@@ -253,7 +254,12 @@ export default function UploadPage() {
 
           <div className="space-y-3 sm:space-y-4">
             {queue.map((item) => (
-              <QueueItem key={item.id} item={item} onRemove={removeItem} />
+              <QueueItem
+                key={item.id}
+                item={item}
+                logs={item.videoId ? processingLogs[item.videoId] : undefined}
+                onRemove={removeItem}
+              />
             ))}
           </div>
         </section>
