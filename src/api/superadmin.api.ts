@@ -1,5 +1,5 @@
 import axiosInstance from './axiosInstance'
-import type { ApiResponse, Organisation, User, Video, VideoListResponse } from '../types/api.types'
+import type { ApiResponse, Organisation, User, VideoListResponse } from '../types/api.types'
 
 export const getSuperAdminOrgsApi = async () => {
   const res = await axiosInstance.get<ApiResponse<{ organisations: Organisation[] }>>(

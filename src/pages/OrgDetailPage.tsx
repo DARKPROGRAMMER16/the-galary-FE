@@ -16,18 +16,18 @@ import StatusBadge from '../components/StatusBadge'
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
-function RoleBadge({ role }: { role: User['role'] }) {
-  const styles: Record<string, string> = {
-    admin: 'bg-primary-container text-on-primary-container',
-    editor: 'bg-secondary-container text-on-secondary-container',
-    viewer: 'bg-surface-container-high text-on-surface-variant',
-  }
-  return (
-    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold capitalize tracking-wide ${styles[role] ?? ''}`}>
-      {role}
-    </span>
-  )
-}
+// function RoleBadge({ role }: { role: User['role'] }) {
+//   const styles: Record<string, string> = {
+//     admin: 'bg-primary-container text-on-primary-container',
+//     editor: 'bg-secondary-container text-on-secondary-container',
+//     viewer: 'bg-surface-container-high text-on-surface-variant',
+//   }
+//   return (
+//     <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold capitalize tracking-wide ${styles[role] ?? ''}`}>
+//       {role}
+//     </span>
+//   )
+// }
 
 function UserStatusBadge({ isActive }: { isActive: boolean }) {
   return (
